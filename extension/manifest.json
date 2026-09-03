@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "TRACE - Professional Trajectory & Evidence Analyzer",
+  "version": "0.1.0",
+  "description": "Local-first professional trajectory analysis, cohort research, and skill preparation grounded in concrete evidence.",
+  "permissions": [
+    "sidePanel",
+    "activeTab",
+    "storage",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://www.linkedin.com/*"
+  ],
+  "action": {
+    "default_title": "Open TRACE Side Panel"
+  },
+  "background": {
+    "service_worker": "service-worker.js",
+    "type": "module"
+  },
+  "side_panel": {
+    "default_path": "extension/sidepanel.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.linkedin.com/*"
+      ],
+      "js": [
+        "content-script.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}
