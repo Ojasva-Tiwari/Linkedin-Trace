@@ -2,17 +2,20 @@ import {
   EvidenceItem,
   MyPathComparison,
   ResearchSet,
+  TimelineEvent,
   TraceProfile,
 } from '@shared/index';
+import { extensionStorage } from './chrome-storage';
 
 const DB_NAME = 'trace_local_db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 export const STORES = {
   PROFILES: 'profiles',
   EVIDENCE: 'evidence',
   RESEARCH_SETS: 'research_sets',
   MYPATH_COMPARISONS: 'mypath_comparisons',
+  TIMELINE: 'timeline',
 } as const;
 
 /**
@@ -61,6 +64,11 @@ export class TraceIndexedDB {
         if (!db.objectStoreNames.contains(STORES.MYPATH_COMPARISONS)) {
           const myPathStore = db.createObjectStore(STORES.MYPATH_COMPARISONS, { keyPath: 'id' });
           myPathStore.createIndex('userProfileId', 'userProfileId', { unique: false });
+        }
+
+        // Timeline store
+        if (!db.objectStoreNames.contains(STORES.TIMELINE)) {
+          db.createObjectStore(STORES.TIMELINE, { keyPath: 'id' });
         }
       };
 
@@ -179,6 +187,46 @@ export class TraceIndexedDB {
       req.onerror = () => reject(req.error);
     });
   }
+
+  // --- Timeline Events ---
+  async saveTimelineEvents(events: TimelineEvent[]): Promise<void> {
+    const db = await this.openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORES.TIMELINE, 'readwrite');
+      const store = tx.objectStore(STORES.TIMELINE);
+      events.forEach((ev) => store.put(ev));
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async getTimelineForProfile(_profileId: string): Promise<TimelineEvent[]> {
+    const db = await this.openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORES.TIMELINE, 'readonly');
+      const req = tx.objectStore(STORES.TIMELINE).getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async getEvidenceForProfile(profileId: string): Promise<EvidenceItem[]> {
+    const profile = await this.getProfile(profileId);
+    if (!profile || !profile.evidenceIds || profile.evidenceIds.length === 0) {
+      return [];
+    }
+    return this.getEvidenceBatch(profile.evidenceIds);
+  }
+
+  // --- Profile State Helpers ---
+  async getActiveProfileId(): Promise<string | undefined> {
+    return extensionStorage.getActiveProfileId();
+  }
+
+  async setActiveProfileId(profileId: string): Promise<void> {
+    return extensionStorage.setActiveProfileId(profileId);
+  }
 }
 
 export const localDB = new TraceIndexedDB();
+export const traceStorage = localDB;

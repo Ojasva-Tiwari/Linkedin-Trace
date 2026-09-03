@@ -1,31 +1,67 @@
-:root {
-  --bg-primary: #0a0e17;
-  --bg-secondary: #121824;
-  --bg-card: rgba(22, 30, 46, 0.7);
-  --border-color: rgba(255, 255, 255, 0.08);
-  --border-active: rgba(99, 102, 241, 0.5);
-  
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
+/* ==============================================================================
+ * TRACE - Design System Tokens ("Editorial Utility") - Desktop First
+ * Source of Visual Truth: Stitch Project (projects/2904523032471625866)
+ * ============================================================================== */
 
-  --accent-primary: #6366f1;
-  --accent-secondary: #06b6d4;
+:root {
+  /* Canvas & Containers */
+  --bg-canvas: #fbf8fc;
+  --bg-card: #ffffff;
+  --bg-subtle: #f6f2f7;
+  --bg-container: #f0edf1;
+  --bg-container-high: #eae7eb;
+  --bg-container-highest: #e4e1e6;
+
+  /* Structural Borders & Spines */
+  --border-subtle: #e4e1e6;
+  --border-hairline: #e2e2dc;
+  --border-strong: #bcc9c6;
+  --spine-color: #dcd9dd;
+
+  /* Brand Accents */
+  --primary: #00685f;
+  --primary-hover: #005049;
+  --primary-container: #008378;
+  --primary-light: rgba(0, 104, 95, 0.08);
+  --primary-light-hover: rgba(0, 104, 95, 0.14);
+
+  /* Typography Colors */
+  --text-primary: #1b1b1e;
+  --text-secondary: #5d5e66;
+  --text-muted: #8b8c94;
+  --text-inverse: #ffffff;
 
   /* Epistemic Badges */
-  --observed-bg: rgba(16, 185, 129, 0.15);
-  --observed-text: #34d399;
-  --observed-border: rgba(16, 185, 129, 0.3);
+  --observed-bg: #ecfdf5;
+  --observed-text: #065f46;
+  --observed-border: #a7f3d0;
 
-  --inferred-bg: rgba(245, 158, 11, 0.15);
-  --inferred-text: #fbbf24;
-  --inferred-border: rgba(245, 158, 11, 0.3);
+  --inferred-bg: #fffbeb;
+  --inferred-text: #92400e;
+  --inferred-border: #fde68a;
 
-  --unknown-bg: rgba(148, 163, 184, 0.12);
-  --unknown-text: #94a3b8;
-  --unknown-border: rgba(148, 163, 184, 0.25);
+  --unknown-bg: #f4f4f5;
+  --unknown-text: #71717a;
+  --unknown-border: #e4e4e7;
 
-  --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  /* Geometry & Spacing */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 10px;
+  --radius-2xl: 12px;
+  --radius-full: 9999px;
+
+  /* Desktop Layout Dimensions */
+  --app-max-width: 1380px;
+  --sidebar-width: 240px;
+  --sidebar-collapsed-width: 68px;
+  --header-height: 56px;
+  --content-gutter: 32px;
+
+  /* Typography Stack: Local and System Fallbacks (Zero Remote Dependency) */
+  --font-sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
 }
 
 * {
@@ -34,157 +70,240 @@
   padding: 0;
 }
 
-body {
-  font-family: var(--font-family);
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
-  font-size: 13px;
-  line-height: 1.5;
+html, body {
   width: 100%;
   min-height: 100vh;
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-.trace-shell {
+/* Desktop Web App Shell */
+.trace-desktop-app {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+  background-color: var(--bg-canvas);
+  position: relative;
+}
+
+/* Left Sidebar Navigation */
+.trace-sidebar {
+  width: var(--sidebar-width);
+  background-color: var(--bg-card);
+  border-right: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
+  position: sticky;
+  top: 0;
   height: 100vh;
+  z-index: 40;
+  flex-shrink: 0;
+  transition: width 0.2s ease;
 }
 
-.trace-header {
-  padding: 12px 16px;
-  background-color: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-color);
+/* Main Content Viewport */
+.trace-main-viewport {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: var(--bg-canvas);
+}
+
+/* Desktop Top Navigation / Search Header */
+.trace-top-bar {
+  height: var(--header-height);
+  border-bottom: 1px solid var(--border-subtle);
+  background-color: rgba(251, 248, 252, 0.94);
+  backdrop-filter: blur(10px);
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding: 0 var(--content-gutter);
+  position: sticky;
+  top: 0;
+  z-index: 30;
 }
 
-.trace-logo {
+/* Centered Desktop Content Container */
+.trace-desktop-container {
+  width: 100%;
+  max-width: var(--app-max-width);
+  margin: 0 auto;
+  padding: 24px var(--content-gutter) 48px var(--content-gutter);
+}
+
+/* Typography Utility Classes */
+.font-headline-xl {
+  font-family: var(--font-sans);
+  font-size: 22px;
   font-weight: 700;
+  line-height: 28px;
+  letter-spacing: -0.02em;
+}
+
+.font-headline-lg {
+  font-family: var(--font-sans);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 24px;
+  letter-spacing: -0.015em;
+}
+
+.font-headline-md {
+  font-family: var(--font-sans);
   font-size: 15px;
-  letter-spacing: 0.5px;
-  background: linear-gradient(135deg, #818cf8 0%, #38bdf8 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.trace-nav-areas {
-  display: flex;
-  background: rgba(0, 0, 0, 0.3);
-  padding: 4px;
-  border-radius: 8px;
-  margin: 10px 16px;
-  gap: 4px;
-}
-
-.trace-nav-btn {
-  flex: 1;
-  background: transparent;
-  border: none;
-  color: var(--text-secondary);
-  padding: 6px 12px;
-  border-radius: 6px;
   font-weight: 600;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.15s ease;
+  line-height: 20px;
+  letter-spacing: -0.01em;
 }
 
-.trace-nav-btn.active {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-}
-
-.trace-sub-nav {
-  display: flex;
-  padding: 0 16px;
-  gap: 8px;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.trace-sub-btn {
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: var(--text-muted);
-  padding: 8px 4px;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.trace-sub-btn.active {
-  color: var(--accent-primary);
-  border-bottom-color: var(--accent-primary);
-}
-
-.trace-content {
-  flex: 1;
-  padding: 16px;
-  overflow-y: auto;
-}
-
-.trace-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 14px;
-  margin-bottom: 14px;
-  backdrop-filter: blur(8px);
-}
-
-.trace-card-header {
-  font-weight: 600;
+.font-headline-sm {
+  font-family: var(--font-sans);
   font-size: 13px;
-  color: var(--text-primary);
-  margin-bottom: 8px;
-}
-
-.trace-action-btn {
-  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-  color: white;
-  border: none;
-  padding: 8px 14px;
-  border-radius: 6px;
-  font-size: 12px;
   font-weight: 600;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  transition: opacity 0.2s ease;
+  line-height: 18px;
+  letter-spacing: -0.005em;
 }
 
-.trace-action-btn:hover {
-  opacity: 0.9;
+.font-body-lg {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 22px;
 }
 
-/* Epistemic Badge */
-.badge {
-  display: inline-flex;
-  align-items: center;
+.font-body-md {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 19px;
+}
+
+.font-body-sm {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 17px;
+}
+
+.font-label-md {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 14px;
+  letter-spacing: 0.02em;
+}
+
+.font-label-sm {
+  font-family: var(--font-mono);
   font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  padding: 2px 6px;
-  border-radius: 4px;
+  font-weight: 500;
+  line-height: 13px;
+  letter-spacing: 0.04em;
 }
 
-.badge-observed {
-  background: var(--observed-bg);
+.font-code-sm {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 15px;
+  letter-spacing: -0.01em;
+}
+
+/* Epistemic Badge Styles */
+.epistemic-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.epistemic-badge.observed {
+  background-color: var(--observed-bg);
   color: var(--observed-text);
   border: 1px solid var(--observed-border);
 }
 
-.badge-inferred {
-  background: var(--inferred-bg);
+.epistemic-badge.inferred {
+  background-color: var(--inferred-bg);
   color: var(--inferred-text);
   border: 1px solid var(--inferred-border);
 }
 
-.badge-unknown {
-  background: var(--unknown-bg);
+.epistemic-badge.unknown {
+  background-color: var(--unknown-bg);
   color: var(--unknown-text);
   border: 1px solid var(--unknown-border);
+}
+
+/* Desktop Content Card Style */
+.trace-card {
+  background-color: var(--bg-card);
+  border-radius: var(--radius-xl);
+  padding: 16px 18px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  border: 1px solid var(--border-hairline);
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.trace-card:hover {
+  background-color: #fdfcff;
+  border-color: var(--border-subtle);
+}
+
+/* Responsive Breakpoints */
+@media (max-width: 1099px) {
+  :root {
+    --sidebar-width: 72px;
+    --content-gutter: 20px;
+  }
+
+  .trace-sidebar-label {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .trace-desktop-app {
+    flex-direction: column;
+  }
+
+  .trace-sidebar {
+    width: 100%;
+    height: auto;
+    position: relative;
+    border-right: none;
+    border-bottom: 1px solid var(--border-subtle);
+    padding: 8px 16px;
+  }
+
+  :root {
+    --content-gutter: 14px;
+  }
+}
+
+/* Clean Desktop Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--bg-container-high);
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--spine-color);
 }

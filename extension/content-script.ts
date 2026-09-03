@@ -10,7 +10,7 @@
 console.log('[TRACE Content Script] Injected on LinkedIn. Awaiting user-triggered capture command.');
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message.action === 'CAPTURE_PAGE') {
+  if (message.action === 'CAPTURE_PAGE' || message.type === 'CAPTURE_CURRENT_PAGE') {
     console.log('[TRACE Content Script] Explicit user capture triggered for URL:', window.location.href);
 
     try {
