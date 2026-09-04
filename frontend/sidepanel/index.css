@@ -276,12 +276,231 @@ html, body {
   }
 }
 
+/* Default Desktop Wide Layout Components */
+.trace-profile-header-wide {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+  gap: 28px;
+  align-items: center;
+}
+
+@media (min-width: 900px) {
+  .trace-profile-header-wide {
+    grid-template-columns: minmax(320px, 1fr) minmax(400px, 1.3fr);
+  }
+}
+
+.trace-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.trace-metric-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 4px 2px 4px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  border-top: 1px solid var(--border-subtle);
+  margin-top: 10px;
+}
+
+.trace-skills-header-grid {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 16px;
+  align-items: center;
+}
+
+.trace-summary-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* ==============================================================================
+ * COMPACT BROWSER UTILITY MODE (Mode B: ~380-440px)
+ * ============================================================================== */
+.trace-mode-compact {
+  --content-gutter: 12px;
+  width: 100% !important;
+  max-width: 100vw !important;
+  overflow-x: hidden !important;
+}
+
+.trace-mode-compact,
+.trace-mode-compact * {
+  box-sizing: border-box;
+}
+
+.trace-mode-compact .trace-desktop-app,
+.trace-mode-compact .trace-main-viewport,
+.trace-mode-compact .trace-desktop-container {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: hidden !important;
+  min-width: 0 !important;
+}
+
+.trace-mode-compact .trace-sidebar {
+  display: none !important;
+}
+
+.trace-mode-compact .trace-top-bar {
+  padding: 0 10px;
+  height: 50px;
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: hidden !important;
+}
+
+.trace-mode-compact .trace-desktop-container {
+  max-width: 100% !important;
+  padding: 10px 10px 32px 10px !important;
+}
+
+/* Compact Profile Header */
+.trace-mode-compact .trace-profile-header-wide {
+  display: flex !important;
+  flex-direction: column !important;
+  grid-template-columns: 1fr !important;
+  align-items: stretch !important;
+  gap: 14px !important;
+  padding: 0 !important;
+}
+
+.trace-mode-compact .trace-profile-identity-col {
+  width: 100% !important;
+  min-width: 0 !important;
+}
+
+.trace-mode-compact .trace-metrics-grid {
+  grid-template-columns: repeat(2, 1fr) !important;
+  width: 100% !important;
+  gap: 8px !important;
+}
+
+.trace-mode-compact .trace-metric-footer {
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  gap: 4px !important;
+}
+
+/* Compact SubNav */
+.trace-mode-compact .trace-subnav,
+.trace-mode-compact nav[aria-label="Profile Sections"] {
+  display: flex !important;
+  overflow-x: auto !important;
+  flex-wrap: nowrap !important;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 3px !important;
+  gap: 4px !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.trace-mode-compact .trace-subnav::-webkit-scrollbar,
+.trace-mode-compact nav[aria-label="Profile Sections"]::-webkit-scrollbar {
+  display: none;
+}
+
+.trace-mode-compact .trace-subnav button,
+.trace-mode-compact nav[aria-label="Profile Sections"] button {
+  flex: 0 0 auto !important;
+  padding: 6px 10px !important;
+  font-size: 11.5px !important;
+  white-space: nowrap !important;
+}
+
+/* Compact Skills Header */
+.trace-mode-compact .trace-skills-header-grid {
+  grid-template-columns: 1fr !important;
+  gap: 12px !important;
+}
+
+/* Compact Summary Header */
+.trace-mode-compact .trace-summary-header {
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  gap: 8px !important;
+}
+
+/* Compact Timeline Event Cards */
+.trace-mode-compact .trace-timeline-spine {
+  display: none !important;
+}
+
+.trace-mode-compact .trace-timeline-event-card {
+  grid-template-columns: 1fr !important;
+  gap: 10px !important;
+  padding: 14px !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.trace-mode-compact .trace-timeline-date-col {
+  padding-right: 0 !important;
+}
+
+.trace-mode-compact .trace-timeline-date-node {
+  display: none !important;
+}
+
+.trace-mode-compact .trace-timeline-evidence-col {
+  border-left: none !important;
+  padding-left: 0 !important;
+  border-top: 1px solid var(--border-hairline) !important;
+  padding-top: 10px !important;
+  flex-direction: row !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  width: 100% !important;
+}
+
+/* Compact Evidence Drawer */
+.trace-mode-compact #trace-evidence-drawer,
+.trace-mode-compact aside.trace-evidence-drawer {
+  max-width: 100% !important;
+  width: 100% !important;
+}
+
+/* Compact Cards & Feed */
+.trace-mode-compact .trace-card {
+  width: 100% !important;
+  max-width: 100% !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
+}
+
+.trace-mode-compact .trace-post-card,
+.trace-mode-compact .trace-source-card {
+  padding: 14px 14px !important;
+}
+
+/* Compact Artifacts & Breakdowns */
+.trace-mode-compact .trace-artifacts-grid {
+  grid-template-columns: 1fr !important;
+}
+
+/* Compact Research & My Path Views */
+.trace-mode-compact .trace-research-grid,
+.trace-mode-compact .trace-mypath-grid {
+  grid-template-columns: 1fr !important;
+}
+
 @media (max-width: 768px) {
-  .trace-desktop-app {
+  .trace-desktop-app:not(.trace-mode-compact) {
     flex-direction: column;
   }
 
-  .trace-sidebar {
+  .trace-desktop-app:not(.trace-mode-compact) .trace-sidebar {
     width: 100%;
     height: auto;
     position: relative;
@@ -291,7 +510,7 @@ html, body {
   }
 
   :root {
-    --content-gutter: 14px;
+    --content-gutter: 12px;
   }
 }
 
@@ -307,3 +526,4 @@ html, body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--spine-color);
 }
+

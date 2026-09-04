@@ -5,3 +5,4 @@ export * from './types/timeline';
 export * from './types/research';
 export * from './types/mypath';
 export * from './types/messages';
+export * from './types/synthesis';

@@ -4,11 +4,14 @@ import {
   ResearchSet,
   TimelineEvent,
   TraceProfile,
+  DiscoveredExternalSource,
+  CareerJourneySynthesis,
+  UserPathJourney,
 } from '@shared/index';
 import { extensionStorage } from './chrome-storage';
 
 const DB_NAME = 'trace_local_db';
-const DB_VERSION = 2;
+const DB_VERSION = 4;
 
 export const STORES = {
   PROFILES: 'profiles',
@@ -16,6 +19,8 @@ export const STORES = {
   RESEARCH_SETS: 'research_sets',
   MYPATH_COMPARISONS: 'mypath_comparisons',
   TIMELINE: 'timeline',
+  SYNTHESIS: 'synthesis',
+  USER_PATH: 'user_path',
 } as const;
 
 /**
@@ -70,6 +75,17 @@ export class TraceIndexedDB {
         if (!db.objectStoreNames.contains(STORES.TIMELINE)) {
           db.createObjectStore(STORES.TIMELINE, { keyPath: 'id' });
         }
+
+        // Synthesis store
+        if (!db.objectStoreNames.contains(STORES.SYNTHESIS)) {
+          const synthStore = db.createObjectStore(STORES.SYNTHESIS, { keyPath: 'profileId' });
+          synthStore.createIndex('inputHash', 'inputHash', { unique: false });
+        }
+
+        // User Path store
+        if (!db.objectStoreNames.contains(STORES.USER_PATH)) {
+          db.createObjectStore(STORES.USER_PATH, { keyPath: 'id' });
+        }
       };
 
       request.onsuccess = () => resolve(request.result);
@@ -100,6 +116,18 @@ export class TraceIndexedDB {
     });
   }
 
+  async getProfileByUrl(sourceUrl: string): Promise<TraceProfile | null> {
+    const db = await this.openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORES.PROFILES, 'readonly');
+      const store = tx.objectStore(STORES.PROFILES);
+      const index = store.index('sourceUrl');
+      const req = index.get(sourceUrl);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
   async getAllProfiles(): Promise<TraceProfile[]> {
     const db = await this.openDB();
     return new Promise((resolve, reject) => {
@@ -107,6 +135,55 @@ export class TraceIndexedDB {
       const req = tx.objectStore(STORES.PROFILES).getAll();
       req.onsuccess = () => resolve(req.result || []);
       req.onerror = () => reject(req.error);
+    });
+  }
+
+  async getProfilesBatch(ids: string[]): Promise<TraceProfile[]> {
+    const db = await this.openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORES.PROFILES, 'readonly');
+      const store = tx.objectStore(STORES.PROFILES);
+      const items: TraceProfile[] = [];
+      let completed = 0;
+
+      if (ids.length === 0) {
+        resolve([]);
+        return;
+      }
+
+      ids.forEach((id) => {
+        const req = store.get(id);
+        req.onsuccess = () => {
+          if (req.result) items.push(req.result);
+          completed++;
+          if (completed === ids.length) resolve(items);
+        };
+        req.onerror = () => reject(req.error);
+      });
+    });
+  }
+
+  async saveNormalizedProfile(
+    profile: TraceProfile,
+    evidence: EvidenceItem[],
+    timeline: TimelineEvent[]
+  ): Promise<void> {
+    const db = await this.openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(
+        [STORES.PROFILES, STORES.EVIDENCE, STORES.TIMELINE],
+        'readwrite'
+      );
+      const profileStore = tx.objectStore(STORES.PROFILES);
+      const evidenceStore = tx.objectStore(STORES.EVIDENCE);
+      const timelineStore = tx.objectStore(STORES.TIMELINE);
+
+      profileStore.put(profile);
+      evidence.forEach((item) => evidenceStore.put(item));
+      timeline.forEach((item) => timelineStore.put(item));
+
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
     });
   }
 
@@ -167,6 +244,47 @@ export class TraceIndexedDB {
     });
   }
 
+  async getResearchSet(id: string): Promise<ResearchSet | null> {
+    const db = await this.openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORES.RESEARCH_SETS, 'readonly');
+      const req = tx.objectStore(STORES.RESEARCH_SETS).get(id);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async deleteResearchSet(id: string): Promise<void> {
+    const db = await this.openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORES.RESEARCH_SETS, 'readwrite');
+      tx.objectStore(STORES.RESEARCH_SETS).delete(id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  // --- User Path ---
+  async saveUserPath(journey: UserPathJourney): Promise<void> {
+    const db = await this.openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORES.USER_PATH, 'readwrite');
+      tx.objectStore(STORES.USER_PATH).put(journey);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async getUserPath(id: string = 'default_user_path'): Promise<UserPathJourney | null> {
+    const db = await this.openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORES.USER_PATH, 'readonly');
+      const req = tx.objectStore(STORES.USER_PATH).get(id);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
   // --- My Path ---
   async saveComparison(comparison: MyPathComparison): Promise<void> {
     const db = await this.openDB();
@@ -216,6 +334,32 @@ export class TraceIndexedDB {
       return [];
     }
     return this.getEvidenceBatch(profile.evidenceIds);
+  }
+
+  async getExternalSourcesForProfile(profileId: string): Promise<DiscoveredExternalSource[]> {
+    const profile = await this.getProfile(profileId);
+    return profile?.externalSources || [];
+  }
+
+  // --- Career Journey Synthesis ---
+  async saveCareerSynthesis(synthesis: CareerJourneySynthesis): Promise<void> {
+    const db = await this.openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORES.SYNTHESIS, 'readwrite');
+      tx.objectStore(STORES.SYNTHESIS).put(synthesis);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async getCareerSynthesis(profileId: string): Promise<CareerJourneySynthesis | null> {
+    const db = await this.openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORES.SYNTHESIS, 'readonly');
+      const req = tx.objectStore(STORES.SYNTHESIS).get(profileId);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
   }
 
   // --- Profile State Helpers ---

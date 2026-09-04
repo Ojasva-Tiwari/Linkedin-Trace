@@ -89,6 +89,130 @@ export interface TracePublication {
 }
 
 /**
+ * Project entry (e.g. engineering artifacts, hackathons, open-source).
+ */
+export interface TraceProject {
+  id: string;
+  title: string;
+  description?: string;
+  url?: string;
+  dateRange?: DateRange;
+  isHackathon?: boolean;
+  isOpenSource?: boolean;
+  factState: FactState;
+  evidenceIds: string[];
+}
+
+/**
+ * Honors and awards entry.
+ */
+export interface TraceAward {
+  id: string;
+  title: string;
+  issuer?: string;
+  issueDate?: string;
+  description?: string;
+  factState: FactState;
+  evidenceIds: string[];
+}
+
+/**
+ * Language entry.
+ */
+export interface TraceLanguage {
+  id: string;
+  name: string;
+  proficiency?: string;
+  factState: FactState;
+  evidenceIds: string[];
+}
+
+/**
+ * Legitimate grounded activity post categories.
+ */
+export type PostCategory =
+  | 'project'
+  | 'internship'
+  | 'job/career update'
+  | 'hackathon/competition'
+  | 'DSA/problem solving'
+  | 'certification/course'
+  | 'achievement/award'
+  | 'open source'
+  | 'technical learning'
+  | 'other/unclassified';
+
+/**
+ * Grounded activity post extracted from LinkedIn Activity surface.
+ */
+export interface TracePost {
+  id: string;
+  postUrl?: string;
+  postDate?: string;
+  visibleText: string;
+  authorName?: string;
+  category: PostCategory;
+  hashtags: string[];
+  links: string[];
+  hasAttachment: boolean;
+  factState: FactState;
+  evidenceIds: string[];
+  linkedTimelineEventId?: string;
+  domSelector?: string;
+  extractedAt: string;
+}
+
+/**
+ * External source types discovered from candidate profile and activity evidence.
+ */
+export type ExternalSourceType =
+  | 'github'
+  | 'portfolio'
+  | 'devpost'
+  | 'leetcode'
+  | 'certification'
+  | 'document'
+  | 'other';
+
+/**
+ * First-class external source discovered automatically from existing evidence.
+ */
+export interface DiscoveredExternalSource {
+  id: string;
+  sourceType: ExternalSourceType;
+  url: string;
+  normalizedUrl: string;
+  domain: string;
+  label: string;
+  originatingEvidenceId: string;
+  originatingContext: string;
+  discoveredAt: string;
+  factState: FactState;
+  evidenceIds: string[];
+  metadata?: {
+    title?: string;
+    description?: string;
+    authorOrOwner?: string;
+    platformSpecific?: Record<string, any>;
+  };
+}
+
+/**
+ * Decomposable metric counts strictly backed by stored atomic evidence records.
+ */
+export interface DecomposedMetrics {
+  internships: number;
+  projects: number;
+  hackathons: number;
+  opensource: number;
+}
+
+/**
+ * Missing-data semantics: distinguishes directly observed from legitimately absent/unrendered sections.
+ */
+export type SectionEpistemicStatus = 'observed' | 'not_rendered' | 'not_yet_analyzed';
+
+/**
  * Canonical TraceProfile schema.
  * Represents exactly ONE individual's professional trajectory.
  */
@@ -107,6 +231,17 @@ export interface TraceProfile {
   skills: TraceSkill[];
   certifications: TraceCertification[];
   publications: TracePublication[];
+  projects?: TraceProject[];
+  awards?: TraceAward[];
+  languages?: TraceLanguage[];
+  posts?: TracePost[];
+  externalSources?: DiscoveredExternalSource[];
+
+  /** Decomposable metrics strictly derived from stored evidence records */
+  decomposedMetrics?: DecomposedMetrics;
+
+  /** Missing-data semantics: Section status without fabricating unknown facts */
+  sectionCoverage?: Record<string, SectionEpistemicStatus>;
 
   /** All atomic pieces of evidence captured for this profile */
   evidenceIds: string[];

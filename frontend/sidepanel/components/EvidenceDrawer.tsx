@@ -32,6 +32,8 @@ export const EvidenceDrawer: React.FC<EvidenceDrawerProps> = ({
 
       {/* Desktop Right Slide-Over Inspection Drawer */}
       <aside
+        id="trace-evidence-drawer"
+        className="trace-evidence-drawer"
         style={{
           position: 'fixed',
           top: 0,

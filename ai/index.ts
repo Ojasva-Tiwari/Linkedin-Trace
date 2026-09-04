@@ -1,6 +1,14 @@
 export * from './provider';
+export * from './synthesis-engine';
 
-import { AIProvider, StubAIProvider } from './provider';
+import {
+  AIProvider,
+  AIProviderConfig,
+  StubAIProvider,
+  OpenAIProvider,
+  AnthropicProvider,
+  LocalModelProvider,
+} from './provider';
 
 /**
  * AI Provider Registry / Factory.
@@ -16,4 +24,19 @@ export class AIService {
   public static setProvider(provider: AIProvider): void {
     this.activeProvider = provider;
   }
+
+  public static createProvider(config: AIProviderConfig): AIProvider {
+    switch (config.type) {
+      case 'openai':
+        return new OpenAIProvider(config);
+      case 'anthropic':
+        return new AnthropicProvider(config);
+      case 'local':
+        return new LocalModelProvider(config);
+      case 'stub':
+      default:
+        return new StubAIProvider();
+    }
+  }
 }
+

@@ -17,6 +17,86 @@ chrome.runtime.onInstalled.addListener(() => {
   }
 });
 
+// Helper to identify the relevant target web tab (skipping extension/internal pages)
+function getRelevantTab(callback: (tab: chrome.tabs.Tab | undefined) => void) {
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    const activeTab = tabs[0];
+    if (
+      activeTab &&
+      activeTab.url &&
+      activeTab.url.includes('linkedin.com/in/')
+    ) {
+      callback(activeTab);
+      return;
+    }
+
+    // If active tab is the side panel itself, internal, or non-linkedin, find the active linkedin web tab
+    chrome.tabs.query({}, (allTabs) => {
+      const linkedinTab = allTabs.find((t) => t.url && t.url.includes('linkedin.com/in/'));
+      if (linkedinTab) {
+        callback(linkedinTab);
+        return;
+      }
+      const anyWebTab = allTabs.find(
+        (t) =>
+          t.url &&
+          !t.url.startsWith('chrome-extension://') &&
+          !t.url.startsWith('edge://') &&
+          !t.url.startsWith('chrome://') &&
+          !t.url.startsWith('about:')
+      );
+      callback(anyWebTab || activeTab);
+    });
+  });
+}
+
+function ensureContentScriptAndSend(
+  tabId: number,
+  msg: any,
+  sendResponse: (resp: any) => void
+) {
+  chrome.tabs.sendMessage(tabId, msg, (resp) => {
+    if (chrome.runtime.lastError || !resp) {
+      if (chrome.scripting) {
+        chrome.scripting.executeScript(
+          {
+            target: { tabId },
+            files: ['content-script.js'],
+          },
+          () => {
+            if (chrome.runtime.lastError) {
+              sendResponse({
+                success: false,
+                error: chrome.runtime.lastError.message,
+              });
+              return;
+            }
+            setTimeout(() => {
+              chrome.tabs.sendMessage(tabId, msg, (retryResp) => {
+                if (chrome.runtime.lastError) {
+                  sendResponse({
+                    success: false,
+                    error: chrome.runtime.lastError.message,
+                  });
+                } else {
+                  sendResponse(retryResp);
+                }
+              });
+            }, 100);
+          }
+        );
+        return;
+      }
+      sendResponse({
+        success: false,
+        error: chrome.runtime.lastError?.message || 'Content script unavailable',
+      });
+      return;
+    }
+    sendResponse(resp);
+  });
+}
+
 // Listener for extension messages
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('[TRACE Background] Received message:', message.action, 'from:', sender.id || 'internal');
@@ -26,15 +106,61 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ status: 'ok', timestamp: new Date().toISOString() });
       return false;
 
-    case 'TRIGGER_PAGE_CAPTURE':
-      // Verify user initiation flag
-      if (!message.payload?.userInitiated) {
-        console.error('[TRACE Background] Rejected capture: User initiation flag missing.');
-        sendResponse({ success: false, error: 'Capture must be explicitly user-triggered.' });
-        return false;
-      }
+    case 'DETECT_ACTIVE_TAB_PROFILE': {
+      getRelevantTab((targetTab) => {
+        if (!targetTab?.id || !targetTab.url) {
+          sendResponse({ success: false, isProfile: false, error: 'No active web tab found' });
+          return;
+        }
 
-      // Forward capture request to the active tab's content script
+        const url = targetTab.url;
+        if (!url.includes('linkedin.com/in/')) {
+          sendResponse({ success: true, isProfile: false, url });
+          return;
+        }
+
+        ensureContentScriptAndSend(
+          targetTab.id,
+          { action: 'DETECT_LINKEDIN_PROFILE' },
+          (resp) => {
+            if (!resp || !resp.success) {
+              const canonicalId = url.match(/\/in\/([^/?#]+)/)?.[1];
+              sendResponse({
+                success: true,
+                isProfile: true,
+                url,
+                canonicalIdentifier: canonicalId,
+                fullName: targetTab.title?.split('|')[0]?.trim() || canonicalId,
+              });
+              return;
+            }
+            sendResponse({ ...resp.data, success: true, isProfile: true, url });
+          }
+        );
+      });
+      return true; // Keep channel open
+    }
+
+    case 'EXTRACT_ACTIVE_PROFILE': {
+      getRelevantTab((targetTab) => {
+        if (!targetTab?.id) {
+          sendResponse({ success: false, error: 'No active web tab found' });
+          return;
+        }
+
+        ensureContentScriptAndSend(
+          targetTab.id,
+          { action: 'EXTRACT_LINKEDIN_PROFILE' },
+          (resp) => {
+            sendResponse(resp);
+          }
+        );
+      });
+      return true;
+    }
+
+    case 'TRIGGER_PAGE_CAPTURE': {
+      // Legacy fallback
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         const activeTab = tabs[0];
         if (!activeTab?.id) {
@@ -44,10 +170,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         chrome.tabs.sendMessage(
           activeTab.id,
-          { action: 'CAPTURE_PAGE', payload: message.payload },
+          { action: 'EXTRACT_LINKEDIN_PROFILE' },
           (response) => {
             if (chrome.runtime.lastError) {
-              console.warn('[TRACE Background] Tab message error:', chrome.runtime.lastError.message);
               sendResponse({
                 success: false,
                 error: `Content script error: ${chrome.runtime.lastError.message}`,
@@ -58,7 +183,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           }
         );
       });
-      return true; // Keep message channel open for asynchronous response
+      return true;
+    }
 
     default:
       console.log('[TRACE Background] Unhandled action:', message.action);

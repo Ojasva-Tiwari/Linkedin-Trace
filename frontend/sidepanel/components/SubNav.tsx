@@ -1,31 +1,48 @@
 import React from 'react';
+import { useLayoutMode } from '../context/LayoutContext';
 
-export type ProfileSubView = 'timeline' | 'skills' | 'preparation' | 'summary' | 'artifacts';
+export type ProfileSubView = 'timeline' | 'skills' | 'preparation' | 'activity' | 'sources' | 'summary' | 'artifacts';
 
 interface SubNavProps {
   activeView: ProfileSubView;
   onSelectView: (view: ProfileSubView) => void;
   showArtifactsTab?: boolean;
+  activityCount?: number;
+  sourcesCount?: number;
 }
 
 export const SubNav: React.FC<SubNavProps> = ({
   activeView,
   onSelectView,
   showArtifactsTab = false,
+  activityCount,
+  sourcesCount,
 }) => {
+  const { isCompact } = useLayoutMode();
+
   const tabs: { id: ProfileSubView; label: string }[] = [
-    { id: 'timeline', label: 'Timeline Progression' },
-    { id: 'skills', label: 'Skill Architecture' },
-    { id: 'preparation', label: 'Preparation Milestones' },
-    { id: 'summary', label: 'Epistemic Summary' },
+    { id: 'timeline', label: isCompact ? 'Timeline' : 'Timeline Progression' },
+    { id: 'skills', label: isCompact ? 'Skills' : 'Skill Architecture' },
+    { id: 'preparation', label: isCompact ? 'Preparation' : 'Preparation Milestones' },
+    {
+      id: 'activity',
+      label: activityCount !== undefined && activityCount > 0 ? `Activity (${activityCount})` : 'Activity',
+    },
+    {
+      id: 'sources',
+      label: sourcesCount !== undefined && sourcesCount > 0 ? (isCompact ? `Sources (${sourcesCount})` : `External Sources (${sourcesCount})`) : (isCompact ? 'Sources' : 'External Sources'),
+    },
+    { id: 'summary', label: isCompact ? 'Summary' : 'Epistemic Summary' },
   ];
 
   if (showArtifactsTab) {
-    tabs.push({ id: 'artifacts' as const, label: 'Artifacts Breakdown' });
+    tabs.push({ id: 'artifacts' as const, label: isCompact ? 'Artifacts' : 'Artifacts Breakdown' });
   }
 
   return (
     <nav
+      className="trace-subnav"
+      aria-label="Profile Sections"
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -43,6 +60,7 @@ export const SubNav: React.FC<SubNavProps> = ({
         return (
           <button
             key={tab.id}
+            data-tab-id={tab.id}
             type="button"
             onClick={() => onSelectView(tab.id)}
             style={{

@@ -1,23 +1,81 @@
 import React from 'react';
-import { TerminalIcon, NorthEastIcon } from './Icons';
+import { TraceProfile, CareerJourneySynthesis, FactState, ConcreteActivity, PreparationCategory } from '@shared/index';
+import { NorthEastIcon, CalendarIcon, LinkIcon } from './Icons';
 
 interface PreparationViewProps {
-  onInspectEvidence?: (evidenceId: string) => void;
+  profile: TraceProfile;
+  synthesis?: CareerJourneySynthesis | null;
+  onInspectEvidence?: (
+    evidenceId: string,
+    claimContext?: {
+      claimText?: string;
+      factState?: FactState;
+      sourceUrl?: string;
+    }
+  ) => void;
 }
 
 export const PreparationView: React.FC<PreparationViewProps> = ({
+  profile,
+  synthesis,
   onInspectEvidence,
 }) => {
+  const hasPrepSynthesis = Boolean(
+    synthesis &&
+      synthesis.preparation &&
+      synthesis.preparation.categories &&
+      synthesis.preparation.categories.length > 0
+  );
+
+  // Fallback anchors
+  const milestoneAnchors = React.useMemo(() => {
+    const anchors: Array<{
+      stage: string;
+      title: string;
+      subtitle: string;
+      date?: string;
+      evidenceId?: string;
+      isCurrent?: boolean;
+    }> = [];
+
+    profile.education.forEach((edu) => {
+      anchors.push({
+        stage: 'Academic Foundation',
+        title: edu.degree || 'Studies',
+        subtitle: edu.schoolName,
+        date: edu.dateRange.rawString || edu.dateRange.startDate,
+        evidenceId: edu.evidenceIds[0],
+      });
+    });
+
+    profile.experiences.forEach((exp) => {
+      anchors.push({
+        stage: exp.dateRange.isCurrent ? 'Current Role' : 'Career Progression',
+        title: exp.title,
+        subtitle: exp.companyName,
+        date: exp.dateRange.rawString || exp.dateRange.startDate,
+        evidenceId: exp.evidenceIds[0],
+        isCurrent: exp.dateRange.isCurrent,
+      });
+    });
+
+    return anchors;
+  }, [profile]);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      {/* Evidence-Backed Preparation Overview (NO fake effort sparkline) */}
+      {/* Evidence-Backed Preparation Overview Header */}
       <section className="trace-card" style={{ padding: '18px 24px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span className="font-headline-sm" style={{ textTransform: 'uppercase', color: 'var(--text-primary)', fontWeight: 700, fontSize: 14 }}>
-              Preparation Milestones
+              Evidence-Backed Preparation Analysis
             </span>
-            <span className="font-code-sm" style={{ color: 'var(--text-secondary)' }}>2022–2026 Trajectory</span>
+            <span className="font-code-sm" style={{ color: 'var(--text-secondary)' }}>
+              {hasPrepSynthesis
+                ? `${synthesis!.preparation.categories.length} Concrete Activity Domains`
+                : `${milestoneAnchors.length} Grounded Anchors`}
+            </span>
           </div>
           <span
             className="font-label-sm"
@@ -30,302 +88,334 @@ export const PreparationView: React.FC<PreparationViewProps> = ({
               border: '1px solid var(--border-subtle)',
             }}
           >
-            3 Observed Milestones · 1 Inferred · 0 Fake Scores
+            0 Fake Scores · Evidence-Only
           </span>
         </div>
 
-        {/* Concrete Trajectory Stage Anchors (Desktop Wide Row) */}
+        <p className="font-body-sm" style={{ color: 'var(--text-secondary)', lineHeight: 1.45, maxWidth: '800px' }}>
+          {hasPrepSynthesis
+            ? 'What concrete activities are visible in the evidence? Grounded extraction of problem solving, technical project building, industry roles, and competitions without artificial effort metrics.'
+            : 'Concrete milestones visible in the rendered profile. No synthetic scores or fake proficiency ratings.'}
+        </p>
+      </section>
+
+      {/* Main Preparation Body */}
+      {hasPrepSynthesis ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+          {synthesis!.preparation.categories.map((cat: PreparationCategory, cIdx: number) => (
+            <article key={cIdx} className="trace-card" style={{ padding: '18px 22px' }}>
+              {/* Category Header */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingBottom: '12px',
+                  borderBottom: '1px solid var(--border-subtle)',
+                  marginBottom: '12px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span
+                    style={{
+                      width: '24px',
+                      height: '24px',
+                      borderRadius: 'var(--radius-sm)',
+                      backgroundColor: 'var(--primary-light)',
+                      color: 'var(--primary)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 700,
+                      fontSize: '11px',
+                    }}
+                  >
+                    {String(cIdx + 1).padStart(2, '0')}
+                  </span>
+                  <h2 className="font-headline-md" style={{ color: 'var(--text-primary)', fontSize: 15, margin: 0 }}>
+                    {cat.name}
+                  </h2>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span className="epistemic-badge observed">
+                    ● {cat.totalObservedActivities} Observed Activities
+                  </span>
+                </div>
+              </div>
+
+              {/* What concrete activities are visible in the evidence */}
+              <p
+                className="font-body-sm"
+                style={{
+                  color: 'var(--text-secondary)',
+                  marginBottom: '14px',
+                  lineHeight: 1.45,
+                  backgroundColor: 'var(--bg-subtle)',
+                  padding: '8px 12px',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--border-hairline)',
+                }}
+              >
+                <strong>Visible in Evidence:</strong> {cat.description}
+              </p>
+
+              {/* Concrete Activity Cards */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {cat.activities.map((act: ConcreteActivity, aIdx: number) => (
+                  <div
+                    key={aIdx}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      backgroundColor: 'var(--bg-subtle)',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid var(--border-subtle)',
+                      padding: '12px 14px',
+                      gap: '6px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span className="font-headline-sm" style={{ color: 'var(--text-primary)', fontSize: 13.5, fontWeight: 600 }}>
+                        {act.title}
+                      </span>
+                      <span className={`epistemic-badge ${act.factState}`}>
+                        {act.factState === 'observed' ? '● Observed' : '◈ Inferred'}
+                      </span>
+                    </div>
+
+                    <p className="font-body-sm" style={{ color: 'var(--text-secondary)', margin: 0, lineHeight: 1.45 }}>
+                      {act.detail}
+                    </p>
+
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginTop: '4px',
+                        paddingTop: '6px',
+                        borderTop: '1px dashed var(--border-hairline)',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        {act.date && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <CalendarIcon size={11} className="text-muted" />
+                            <span className="font-code-sm" style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
+                              {act.date}
+                            </span>
+                          </div>
+                        )}
+                        {act.sourceUrl && (
+                          <a
+                            href={act.sourceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              fontSize: '10px',
+                              backgroundColor: 'var(--bg-card)',
+                              padding: '2px 6px',
+                              borderRadius: 'var(--radius-sm)',
+                              border: '1px solid var(--border-subtle)',
+                              color: 'var(--primary)',
+                              textDecoration: 'none',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '2px',
+                            }}
+                          >
+                            <span>Source</span>
+                            <NorthEastIcon size={9} />
+                          </a>
+                        )}
+                      </div>
+
+                      {act.evidenceIds && act.evidenceIds.length > 0 && onInspectEvidence && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onInspectEvidence(act.evidenceIds[0], {
+                              claimText: `${act.title}: ${act.detail}`,
+                              factState: act.factState,
+                              sourceUrl: act.sourceUrl,
+                            })
+                          }
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--primary)',
+                            cursor: 'pointer',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '3px',
+                          }}
+                        >
+                          <LinkIcon size={11} />
+                          <span>Inspect Evidence ↗</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : (
+        /* Fallback: Standard Roles & Academic Institutions */
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(4, 1fr)',
-            gap: '12px',
-            padding: '14px 8px 4px 8px',
-            borderTop: '1px solid var(--border-subtle)',
-            textAlign: 'center',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(460px, 1fr))',
+            gap: '20px',
           }}
         >
-          <div style={{ display: 'flex', flexDirection: 'column', padding: '8px', backgroundColor: 'var(--bg-subtle)', borderRadius: 'var(--radius-md)' }}>
-            <span className="font-label-sm" style={{ color: 'var(--text-secondary)' }}>Y1 (2022)</span>
-            <span className="font-headline-sm" style={{ color: 'var(--text-primary)', fontWeight: 600, marginTop: 2 }}>Foundations</span>
-            <span className="font-code-sm" style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>C++ & Core CS</span>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', padding: '8px', backgroundColor: 'var(--bg-subtle)', borderRadius: 'var(--radius-md)' }}>
-            <span className="font-label-sm" style={{ color: 'var(--text-secondary)' }}>Y2 (2023)</span>
-            <span className="font-headline-sm" style={{ color: 'var(--text-primary)', fontWeight: 600, marginTop: 2 }}>Startup Prep</span>
-            <span className="font-code-sm" style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>TechFlow Intern</span>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', padding: '8px', backgroundColor: 'var(--bg-subtle)', borderRadius: 'var(--radius-md)' }}>
-            <span className="font-label-sm" style={{ color: 'var(--text-secondary)' }}>Y3 (2024)</span>
-            <span className="font-headline-sm" style={{ color: 'var(--text-primary)', fontWeight: 600, marginTop: 2 }}>Flipkart Intern</span>
-            <span className="font-code-sm" style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>Kafka & Scale</span>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', padding: '8px', backgroundColor: 'var(--primary-light)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(0, 104, 95, 0.2)' }}>
-            <span className="font-label-sm" style={{ color: 'var(--primary)' }}>Y4 (2025)</span>
-            <span className="font-headline-sm" style={{ color: 'var(--primary)', fontWeight: 700, marginTop: 2 }}>Microsoft SDE</span>
-            <span className="font-code-sm" style={{ fontSize: 10, color: 'var(--primary)', marginTop: 2 }}>Accepted Offer</span>
-          </div>
-        </div>
-      </section>
-
-      {/* 2-Column Desktop Grid: Coding & Systems */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(460px, 1fr))',
-          gap: '20px',
-        }}
-      >
-        {/* Pillar 1: Coding & Algorithmic Problem Solving */}
-        <article className="trace-card" style={{ padding: '18px 20px' }}>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              paddingBottom: '10px',
-              borderBottom: '1px solid var(--border-subtle)',
-              marginBottom: '14px',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span
-                style={{
-                  width: '22px',
-                  height: '22px',
-                  borderRadius: 'var(--radius-sm)',
-                  backgroundColor: 'var(--bg-container-high)',
-                  color: 'var(--text-primary)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 700,
-                  fontSize: '11px',
-                }}
-              >
-                01
-              </span>
-              <h2 className="font-headline-md" style={{ color: 'var(--text-primary)', fontSize: 15 }}>
-                Coding & Problem Solving
-              </h2>
-            </div>
-            <span className="font-code-sm" style={{ color: 'var(--text-secondary)' }}>
-              Nov 2022 → Oct 2025
-            </span>
-          </div>
-
-          {/* Platform Identity Card (LeetCode) */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '10px 12px',
-              backgroundColor: 'var(--bg-subtle)',
-              borderRadius: 'var(--radius-md)',
-              marginBottom: '12px',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <TerminalIcon size={16} className="text-secondary" />
-              <span className="font-headline-sm" style={{ color: 'var(--text-primary)', fontWeight: 600 }}>LeetCode</span>
-              <span className="font-code-sm" style={{ color: 'var(--text-secondary)' }}>@ashmit_b</span>
-            </div>
-            <span className="epistemic-badge observed">● Observed</span>
-          </div>
-
-          {/* Concrete Platform Metrics */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: '10px',
-              marginBottom: '14px',
-            }}
-          >
-            <div style={{ padding: '8px 12px', backgroundColor: 'var(--bg-subtle)', borderRadius: 'var(--radius-md)' }}>
-              <span className="font-label-sm" style={{ color: 'var(--text-secondary)', display: 'block' }}>Peak Contest Rating</span>
-              <span className="font-headline-lg" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>1,984</span>
-            </div>
-            <div style={{ padding: '8px 12px', backgroundColor: 'var(--bg-subtle)', borderRadius: 'var(--radius-md)' }}>
-              <span className="font-label-sm" style={{ color: 'var(--text-secondary)', display: 'block' }}>Weekly Contests</span>
-              <span className="font-headline-lg" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>26 Recorded</span>
-            </div>
-          </div>
-
-          {/* Dated Concrete Milestone Observations */}
-          <div style={{ position: 'relative', paddingLeft: '18px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <article className="trace-card" style={{ padding: '18px 20px' }}>
             <div
               style={{
-                position: 'absolute',
-                left: '6px',
-                top: '4px',
-                bottom: '4px',
-                width: '1.5px',
-                backgroundColor: 'var(--border-subtle)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingBottom: '10px',
+                borderBottom: '1px solid var(--border-subtle)',
+                marginBottom: '14px',
               }}
-            />
-
-            {/* Milestone 1 */}
-            <div style={{ position: 'relative' }}>
-              <div
-                style={{
-                  position: 'absolute',
-                  left: '-16px',
-                  top: '4px',
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  backgroundColor: 'var(--bg-card)',
-                  border: '2px solid #f59e0b',
-                }}
-              />
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <p className="font-headline-sm" style={{ color: 'var(--text-primary)', fontWeight: 600 }}>Baseline: 50 Problems Solved</p>
-                <span className="epistemic-badge inferred">◈ Inferred</span>
-              </div>
-              <span className="font-code-sm" style={{ color: 'var(--text-secondary)' }}>Late 2022</span>
-              <p className="font-body-sm" style={{ color: 'var(--text-secondary)', marginTop: '2px' }}>
-                Initial recursion, binary search, and basic sorting bootstrap during early coursework.
-              </p>
-            </div>
-
-            {/* Milestone 2 */}
-            <div style={{ position: 'relative' }}>
-              <div
-                style={{
-                  position: 'absolute',
-                  left: '-16px',
-                  top: '4px',
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  backgroundColor: 'var(--primary)',
-                }}
-              />
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <p className="font-headline-sm" style={{ color: 'var(--text-primary)', fontWeight: 600 }}>200 Problems Milestone</p>
-                <span className="epistemic-badge observed">● Observed</span>
-              </div>
-              <span className="font-code-sm" style={{ color: 'var(--text-secondary)' }}>Mar 2024</span>
-              <p className="font-body-sm" style={{ color: 'var(--text-secondary)', marginTop: '2px' }}>
-                Systematic mastery of medium-level trees, dynamic programming, and graphs.
-              </p>
-            </div>
-
-            {/* Milestone 3 */}
-            <div style={{ position: 'relative' }}>
-              <div
-                style={{
-                  position: 'absolute',
-                  left: '-16px',
-                  top: '4px',
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  backgroundColor: 'var(--primary)',
-                }}
-              />
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <p className="font-headline-sm" style={{ color: 'var(--text-primary)', fontWeight: 600 }}>527 Problems & 45-Day Continuous Streak</p>
-                <span className="epistemic-badge observed">● Observed</span>
-              </div>
-              <span className="font-code-sm" style={{ color: 'var(--text-secondary)' }}>Aug 2025</span>
-              <p className="font-body-sm" style={{ color: 'var(--text-secondary)', marginTop: '2px' }}>
-                Easy (190), Medium (280), Hard (57) confirmed through authenticated profile trace.
-              </p>
-              {onInspectEvidence && (
-                <div style={{ marginTop: '4px' }}>
-                  <button
-                    type="button"
-                    onClick={() => onInspectEvidence('ev-leetcode-527')}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: 'var(--primary)',
-                      cursor: 'pointer',
-                      fontSize: '11px',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '3px',
-                      padding: 0,
-                      fontWeight: 500,
-                    }}
-                  >
-                    <span>Inspect evidence snippet</span>
-                    <NorthEastIcon size={10} />
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </article>
-
-        {/* Pillar 2: Systems & Production Architecture */}
-        <article className="trace-card" style={{ padding: '18px 20px' }}>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              paddingBottom: '10px',
-              borderBottom: '1px solid var(--border-subtle)',
-              marginBottom: '14px',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span
-                style={{
-                  width: '22px',
-                  height: '22px',
-                  borderRadius: 'var(--radius-sm)',
-                  backgroundColor: 'var(--bg-container-high)',
-                  color: 'var(--text-primary)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 700,
-                  fontSize: '11px',
-                }}
-              >
-                02
-              </span>
+            >
               <h2 className="font-headline-md" style={{ color: 'var(--text-primary)', fontSize: 15 }}>
-                Systems & Production Architecture
+                Professional Trajectory & Roles
               </h2>
-            </div>
-            <span className="font-code-sm" style={{ color: 'var(--text-secondary)' }}>
-              Summer – Fall 2025
-            </span>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div style={{ padding: '12px 14px', backgroundColor: 'var(--bg-subtle)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-hairline)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span className="font-headline-sm" style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
-                  Flipkart Backend Internship (Kafka Telemetry)
-                </span>
-                <span className="epistemic-badge observed">● Observed</span>
-              </div>
-              <p className="font-body-sm" style={{ color: 'var(--text-secondary)', marginTop: '4px', lineHeight: 1.45 }}>
-                Applied production experience: Golang service proxy and pub/sub cluster re-balancing optimization reducing p99 processing lag by 34%.
-              </p>
+              <span className="font-code-sm" style={{ color: 'var(--text-secondary)' }}>
+                {profile.experiences.length} Observed Positions
+              </span>
             </div>
 
-            <div style={{ padding: '12px 14px', backgroundColor: 'var(--bg-subtle)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-hairline)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span className="font-headline-sm" style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
-                  Private System Design & Mock Interviews
-                </span>
-                <span className="epistemic-badge unknown">○ Unknown</span>
-              </div>
-              <p className="font-body-sm" style={{ color: 'var(--text-secondary)', marginTop: '4px', fontStyle: 'italic', lineHeight: 1.45 }}>
-                Private offline study, mock interview hours, and internal referrals are outside observational scope and not documented in public records.
-              </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {profile.experiences.map((exp) => (
+                <div
+                  key={exp.id}
+                  style={{
+                    padding: '10px 14px',
+                    backgroundColor: 'var(--bg-subtle)',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border-subtle)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span className="font-headline-sm" style={{ color: 'var(--text-primary)', fontSize: 13, fontWeight: 600 }}>
+                      {exp.title} — {exp.companyName}
+                    </span>
+                    <span className="epistemic-badge observed">● Observed</span>
+                  </div>
+                  {exp.dateRange.rawString && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '3px' }}>
+                      <CalendarIcon size={11} className="text-secondary" />
+                      <span className="font-code-sm" style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                        {exp.dateRange.rawString}
+                      </span>
+                    </div>
+                  )}
+                  {exp.description && (
+                    <p className="font-body-sm" style={{ color: 'var(--text-secondary)', marginTop: '4px', lineHeight: 1.4 }}>
+                      {exp.description}
+                    </p>
+                  )}
+                  {exp.evidenceIds[0] && onInspectEvidence && (
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '6px' }}>
+                      <button
+                        type="button"
+                        onClick={() => onInspectEvidence(exp.evidenceIds[0])}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--primary)',
+                          cursor: 'pointer',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '3px',
+                        }}
+                      >
+                        <span>Inspect Evidence ↗</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
-          </div>
-        </article>
-      </div>
+          </article>
+
+          <article className="trace-card" style={{ padding: '18px 20px' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingBottom: '10px',
+                borderBottom: '1px solid var(--border-subtle)',
+                marginBottom: '14px',
+              }}
+            >
+              <h2 className="font-headline-md" style={{ color: 'var(--text-primary)', fontSize: 15 }}>
+                Academic & Educational Anchor
+              </h2>
+              <span className="font-code-sm" style={{ color: 'var(--text-secondary)' }}>
+                {profile.education.length} Institutions
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {profile.education.map((edu) => (
+                <div
+                  key={edu.id}
+                  style={{
+                    padding: '10px 14px',
+                    backgroundColor: 'var(--bg-subtle)',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border-subtle)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span className="font-headline-sm" style={{ color: 'var(--text-primary)', fontSize: 13, fontWeight: 600 }}>
+                      {edu.schoolName}
+                    </span>
+                    <span className="epistemic-badge observed">● Observed</span>
+                  </div>
+                  {edu.degree && (
+                    <span className="font-body-sm" style={{ color: 'var(--text-secondary)', display: 'block', marginTop: '2px' }}>
+                      {edu.degree}{edu.fieldOfStudy ? ` · ${edu.fieldOfStudy}` : ''}
+                    </span>
+                  )}
+                  {edu.evidenceIds[0] && onInspectEvidence && (
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '6px' }}>
+                      <button
+                        type="button"
+                        onClick={() => onInspectEvidence(edu.evidenceIds[0])}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--primary)',
+                          cursor: 'pointer',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '3px',
+                        }}
+                      >
+                        <span>Inspect Evidence ↗</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </article>
+        </div>
+      )}
     </div>
   );
 };

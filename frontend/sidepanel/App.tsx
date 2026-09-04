@@ -1,18 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
-  TraceProfile,
   EvidenceItem,
-  TimelineEvent,
   ResearchSet,
-  MyPathComparison,
+  ResearchProfileRef,
+  FactState,
 } from '@shared/index';
 import { traceStorage } from '@storage/indexeddb';
-import {
-  SAMPLE_PROFILE,
-  SAMPLE_EVIDENCE_ITEMS,
-  SAMPLE_TIMELINE_EVENTS,
-  SAMPLE_RESEARCH_SETS,
-} from '@storage/sampleData';
+
+import { SAMPLE_RESEARCH_SETS } from '@storage/sampleData';
 
 import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
@@ -24,237 +19,316 @@ import { EvidenceDrawer } from './components/EvidenceDrawer';
 import { ArtifactsBreakdownView } from './components/ArtifactsBreakdownView';
 import { SkillsView } from './components/SkillsView';
 import { PreparationView } from './components/PreparationView';
+import { ActivityView } from './components/ActivityView';
+import { ExternalSourcesView } from './components/ExternalSourcesView';
 import { SummaryView } from './components/SummaryView';
 import { ResearchView } from './components/ResearchView';
 import { MyPathView } from './components/MyPathView';
 import { CaptureBanner } from './components/CaptureBanner';
 import { EmptyState } from './components/EmptyState';
+import { useAutoProfileAnalysis } from './hooks/useAutoProfileAnalysis';
+import { LayoutProvider, useLayoutMode } from './context/LayoutContext';
 
-export const App: React.FC = () => {
+const AppInner: React.FC = () => {
+  const { isCompact } = useLayoutMode();
   // Navigation State
   const [activeArea, setActiveArea] = useState<'profile' | 'research' | 'mypath'>('profile');
   const [activeSubView, setActiveSubView] = useState<ProfileSubView>('timeline');
   const [activeArtifactCategory, setActiveArtifactCategory] = useState<ArtifactCategory | null>(null);
 
-  // Profile & Evidence State
-  const [profile, setProfile] = useState<TraceProfile | null>(null);
-  const [evidenceMap, setEvidenceMap] = useState<Record<string, EvidenceItem>>({});
-  const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
+  // Automatic Profile Analysis Hook
+  const {
+    status,
+    synthesisStatus,
+    synthesis,
+    detection,
+    profile,
+    evidenceItems,
+    timelineEvents,
+    reanalyze,
+    resynthesize,
+    loadSampleProfile,
+    loadProfileById,
+  } = useAutoProfileAnalysis();
+
+  // Inspected Evidence Item for Right Slide-Over
   const [inspectedEvidence, setInspectedEvidence] = useState<EvidenceItem | null>(null);
 
   // Research & My Path State
   const [researchSets, setResearchSets] = useState<ResearchSet[]>([]);
+  const [activeResearchSetId, setActiveResearchSetId] = useState<string | null>(null);
   const [isInResearch, setIsInResearch] = useState(false);
-  const [myPathComparison] = useState<MyPathComparison | null>(null);
 
-  // Extension & Capture State
-  const [syncState, setSyncState] = useState<'synced' | 'capturing' | 'idle' | 'error'>('synced');
-  const [showCaptureBanner, setShowCaptureBanner] = useState(true);
-  const [bannerMessage, setBannerMessage] = useState('Profile captured · Historical activity partial.');
+  // Banner Visibility
+  const [showStatusBanner, setShowStatusBanner] = useState(true);
 
-  // 1. Initial Local Data Load from IndexedDB
+  // Build quick evidence lookup map
+  const evidenceMap = useMemo(() => {
+    const map: Record<string, EvidenceItem> = {};
+    evidenceItems.forEach((ev) => {
+      map[ev.id] = ev;
+    });
+    return map;
+  }, [evidenceItems]);
+
+  // Load Research Sets from IndexedDB (Strictly persistent, zero default sample injection)
   useEffect(() => {
-    async function initData() {
+    async function loadResearch() {
       try {
-        const activeProfileId = await traceStorage.getActiveProfileId();
-        let currentProfile: TraceProfile | null = null;
-
-        if (activeProfileId) {
-          currentProfile = await traceStorage.getProfile(activeProfileId);
-        } else {
-          // Pre-populate with sample profile for testing if database is fresh
-          await traceStorage.saveProfile(SAMPLE_PROFILE);
-          for (const ev of SAMPLE_EVIDENCE_ITEMS) {
-            await traceStorage.saveEvidence(ev);
-          }
-          await traceStorage.saveTimelineEvents(SAMPLE_TIMELINE_EVENTS);
-          for (const rs of SAMPLE_RESEARCH_SETS) {
-            await traceStorage.saveResearchSet(rs);
-          }
-          await traceStorage.setActiveProfileId(SAMPLE_PROFILE.id);
-          currentProfile = SAMPLE_PROFILE;
-        }
-
-        if (currentProfile) {
-          setProfile(currentProfile);
-
-          // Fetch evidence
-          const evItems = await traceStorage.getEvidenceForProfile(currentProfile.id);
-          const map: Record<string, EvidenceItem> = {};
-          evItems.forEach((ev: EvidenceItem) => {
-            map[ev.id] = ev;
-          });
-          // Also merge sample evidence if needed
-          SAMPLE_EVIDENCE_ITEMS.forEach((ev: EvidenceItem) => {
-            if (!map[ev.id]) map[ev.id] = ev;
-          });
-          setEvidenceMap(map);
-
-          // Fetch timeline
-          const tl = await traceStorage.getTimelineForProfile(currentProfile.id);
-          setTimelineEvents(tl.length > 0 ? tl : SAMPLE_TIMELINE_EVENTS);
-        }
-
-        // Fetch Research Sets
         const sets = await traceStorage.getAllResearchSets();
-        setResearchSets(sets.length > 0 ? sets : SAMPLE_RESEARCH_SETS);
-
-        // Check if active profile is in research set
-        if (currentProfile) {
-          const inSet = sets.some((s: ResearchSet) => s.profileRefs.some((r) => r.profileId === currentProfile?.id));
-          setIsInResearch(inSet);
+        setResearchSets(sets);
+        if (sets.length > 0) {
+          setActiveResearchSetId((prev) => prev || sets[0].id);
         }
       } catch (err) {
-        console.error('Error loading initial TRACE data:', err);
-        // Fallback to sample data in memory
-        setProfile(SAMPLE_PROFILE);
-        const map: Record<string, EvidenceItem> = {};
-        SAMPLE_EVIDENCE_ITEMS.forEach((ev) => {
-          map[ev.id] = ev;
-        });
-        setEvidenceMap(map);
-        setTimelineEvents(SAMPLE_TIMELINE_EVENTS);
-        setResearchSets(SAMPLE_RESEARCH_SETS);
+        console.warn('Error loading research sets:', err);
       }
     }
-
-    initData();
+    loadResearch();
   }, []);
 
-  // 2. Handle User-Triggered Page Capture via Chrome Runtime or Simulation
-  const handleTriggerCapture = async () => {
-    setSyncState('capturing');
-    try {
-      if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.query) {
-        const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        if (activeTab?.id) {
-          chrome.tabs.sendMessage(
-            activeTab.id,
-            { type: 'CAPTURE_CURRENT_PAGE' },
-            async (response) => {
-              if (chrome.runtime.lastError || !response?.success) {
-                setBannerMessage('Capture triggered on active tab. Make sure a LinkedIn profile is loaded.');
-                setShowCaptureBanner(true);
-                setSyncState('idle');
-              } else {
-                setBannerMessage('Active DOM successfully captured. Trajectory updated.');
-                setShowCaptureBanner(true);
-                setSyncState('synced');
-              }
-            }
-          );
-        } else {
-          setSyncState('idle');
-        }
-      } else {
-        // Mock capture simulation in desktop browser preview
-        setTimeout(() => {
-          setSyncState('synced');
-          setBannerMessage('Desktop studio preview: Trajectory cache refreshed.');
-          setShowCaptureBanner(true);
-        }, 500);
-      }
-    } catch (err) {
-      console.error('Capture failed:', err);
-      setSyncState('error');
+  // Update In-Research toggle when profile or active cohort changes
+  useEffect(() => {
+    setInspectedEvidence(null);
+    if (profile && researchSets.length > 0) {
+      const activeSet = researchSets.find((s) => s.id === activeResearchSetId) || researchSets[0];
+      const inSet = activeSet?.profileRefs.some((r) => r.profileId === profile.id) || false;
+      setIsInResearch(inSet);
+    } else {
+      setIsInResearch(false);
+    }
+  }, [profile, researchSets, activeResearchSetId]);
+
+  // Research Cohort Actions
+  const handleCreateResearchSet = async (title: string, description?: string) => {
+    const newSet: ResearchSet = {
+      id: `set-${Date.now()}`,
+      title,
+      description,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      profileRefs: [],
+      tags: [],
+    };
+    await traceStorage.saveResearchSet(newSet);
+    setResearchSets((prev) => [...prev, newSet]);
+    setActiveResearchSetId(newSet.id);
+  };
+
+  const handleRenameResearchSet = async (setId: string, newTitle: string) => {
+    const target = researchSets.find((s) => s.id === setId);
+    if (!target) return;
+    const updated: ResearchSet = {
+      ...target,
+      title: newTitle,
+      updatedAt: new Date().toISOString(),
+    };
+    await traceStorage.saveResearchSet(updated);
+    setResearchSets((prev) => prev.map((s) => (s.id === setId ? updated : s)));
+  };
+
+  const handleDeleteResearchSet = async (setId: string) => {
+    await traceStorage.deleteResearchSet(setId);
+    const remaining = researchSets.filter((s) => s.id !== setId);
+    setResearchSets(remaining);
+    setActiveResearchSetId(remaining[0]?.id || null);
+  };
+
+  const handleAddProfileToSet = async (setId: string) => {
+    if (!profile) return;
+    const targetSet = researchSets.find((s) => s.id === setId);
+    if (!targetSet) return;
+    if (targetSet.profileRefs.some((r) => r.profileId === profile.id)) return;
+
+    const newRef: ResearchProfileRef = {
+      profileId: profile.id,
+      fullName: profile.fullName,
+      headline: profile.headline,
+      addedAt: new Date().toISOString(),
+      tags: [],
+    };
+    const updatedSet: ResearchSet = {
+      ...targetSet,
+      profileRefs: [...targetSet.profileRefs, newRef],
+      updatedAt: new Date().toISOString(),
+    };
+    await traceStorage.saveResearchSet(updatedSet);
+    setResearchSets((prev) => prev.map((s) => (s.id === setId ? updatedSet : s)));
+    setIsInResearch(true);
+  };
+
+  const handleRemoveProfileFromSet = async (setId: string, profileId: string) => {
+    const targetSet = researchSets.find((s) => s.id === setId);
+    if (!targetSet) return;
+    const updatedRefs = targetSet.profileRefs.filter((r) => r.profileId !== profileId);
+    const updatedSet: ResearchSet = {
+      ...targetSet,
+      profileRefs: updatedRefs,
+      updatedAt: new Date().toISOString(),
+    };
+    await traceStorage.saveResearchSet(updatedSet);
+    setResearchSets((prev) => prev.map((s) => (s.id === setId ? updatedSet : s)));
+    if (profile && profileId === profile.id) {
+      setIsInResearch(false);
     }
   };
 
-  // 3. Toggle Research Cohort Membership
+  // Toggle Research Membership for currently viewed profile
   const handleToggleResearch = async () => {
     if (!profile) return;
     try {
-      const sets = await traceStorage.getAllResearchSets();
-      const defaultSet = sets[0] || SAMPLE_RESEARCH_SETS[0];
+      let currentSet = researchSets.find((s) => s.id === activeResearchSetId) || researchSets[0];
+      if (!currentSet) {
+        currentSet = {
+          id: `set-${Date.now()}`,
+          title: 'My Research Cohort',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          profileRefs: [],
+          tags: [],
+        };
+        await traceStorage.saveResearchSet(currentSet);
+        setResearchSets([currentSet]);
+        setActiveResearchSetId(currentSet.id);
+      }
 
       if (isInResearch) {
-        const updatedRefs = defaultSet.profileRefs.filter((r: { profileId: string }) => r.profileId !== profile.id);
-        const updatedSet: ResearchSet = { ...defaultSet, profileRefs: updatedRefs, updatedAt: new Date().toISOString() };
-        await traceStorage.saveResearchSet(updatedSet);
-        setResearchSets([updatedSet]);
-        setIsInResearch(false);
+        await handleRemoveProfileFromSet(currentSet.id, profile.id);
       } else {
-        const updatedRefs = [
-          ...defaultSet.profileRefs,
-          {
-            profileId: profile.id,
-            fullName: profile.fullName,
-            headline: profile.headline,
-            addedAt: new Date().toISOString(),
-            tags: [],
-          },
-        ];
-        const updatedSet: ResearchSet = { ...defaultSet, profileRefs: updatedRefs, updatedAt: new Date().toISOString() };
-        await traceStorage.saveResearchSet(updatedSet);
-        setResearchSets([updatedSet]);
-        setIsInResearch(true);
+        await handleAddProfileToSet(currentSet.id);
       }
     } catch (err) {
       console.error('Failed to toggle research set:', err);
     }
   };
 
-  // 4. Handle Decomposed Metric Category Click
+  // Switch to selected profile from Research matrix
+  const handleSelectProfileFromResearch = async (profileId: string) => {
+    await loadProfileById(profileId);
+    setActiveArea('profile');
+    setActiveSubView('timeline');
+  };
+
+  // Explicit user-triggered demo sample cohort loading
+  const handleLoadSampleCohort = async () => {
+    for (const s of SAMPLE_RESEARCH_SETS) {
+      await traceStorage.saveResearchSet(s);
+    }
+    const sets = await traceStorage.getAllResearchSets();
+    setResearchSets(sets);
+    if (sets.length > 0) {
+      setActiveResearchSetId(sets[0].id);
+    }
+  };
+
+  // Handle Decomposed Metric Category Click
   const handleSelectArtifactCategory = (category: ArtifactCategory) => {
     setActiveArtifactCategory(category);
     setActiveSubView('artifacts');
   };
 
-  // 5. Inspect Evidence in Right Slide-Over
-  const handleInspectEvidence = (evidenceId: string) => {
-    const item = evidenceMap[evidenceId] || SAMPLE_EVIDENCE_ITEMS.find((e) => e.id === evidenceId) || null;
+  // Inspect Evidence in Right Slide-Over
+  const handleInspectEvidence = (
+    evidenceId: string,
+    claimContext?: {
+      claimText?: string;
+      factState?: FactState;
+      sourceUrl?: string;
+    }
+  ) => {
+    const item = evidenceMap[evidenceId] || null;
     if (item) {
-      setInspectedEvidence(item);
+      if (claimContext) {
+        setInspectedEvidence({
+          ...item,
+          rawText: claimContext.claimText || item.rawText,
+          factState: claimContext.factState || item.factState,
+          provenance: {
+            ...item.provenance,
+            url: claimContext.sourceUrl || item.provenance.url,
+            contextSnippet: item.provenance.contextSnippet || item.rawText,
+          },
+          annotation: `Grounding citation for synthesized claim #${evidenceId}`,
+        });
+      } else {
+        setInspectedEvidence(item);
+      }
     } else {
       setInspectedEvidence({
         id: evidenceId,
         type: 'dom_text',
-        factState: 'observed',
-        rawText: `Evidence artifact citation #${evidenceId}`,
+        factState: claimContext?.factState || 'observed',
+        rawText: claimContext?.claimText || `Evidence citation #${evidenceId}`,
         provenance: {
-          url: profile?.sourceUrl || 'https://linkedin.com',
-          pageTitle: 'Document Citation Anchor',
+          url: claimContext?.sourceUrl || profile?.sourceUrl || 'https://linkedin.com',
+          pageTitle: `${profile?.fullName || 'Candidate'} | LinkedIn`,
           capturedAt: new Date().toISOString(),
           contextSnippet: 'Direct observation grounded in public document context.',
         },
         extractedAt: new Date().toISOString(),
         confidence: 'high',
+        annotation: 'Grounding citation record',
       });
     }
   };
 
-  // Observed evidence count for grounding bar (NO fake percentages)
+  // Observed evidence count for grounding status (NO fake percentages)
   const observedEvidenceCount = profile
-    ? profile.evidenceIds.filter((id) => evidenceMap[id]?.factState === 'observed' || id.startsWith('ev-')).length
+    ? profile.evidenceIds.filter(
+        (id) => evidenceMap[id]?.factState === 'observed' || id.startsWith('ev-')
+      ).length
     : 0;
 
+  // Dynamic decomposable artifact counts strictly derived from stored evidence
+  const artifactCounts = useMemo(() => {
+    if (!profile) {
+      return { internships: 0, projects: 0, hackathons: 0, opensource: 0 };
+    }
+    if (profile.decomposedMetrics) {
+      return profile.decomposedMetrics;
+    }
+    const internshipCount = profile.experiences.filter((e) => {
+      const t = e.title.toLowerCase();
+      return t.includes('intern') || t.includes('fellow') || t.includes('trainee') || t.includes('co-op');
+    }).length;
+    return {
+      internships: internshipCount > 0 ? internshipCount : profile.experiences.length,
+      projects: profile.projects?.length ?? 0,
+      hackathons: (profile.projects || []).filter((p) => p.isHackathon).length,
+      opensource: (profile.projects || []).filter((p) => p.isOpenSource).length,
+    };
+  }, [profile]);
+
   return (
-    <div className="trace-desktop-app">
+    <div className={`trace-desktop-app ${isCompact ? 'trace-mode-compact' : 'trace-mode-expanded'}`}>
       {/* Left Sidebar Navigation */}
       <Sidebar
         currentArea={activeArea}
         onSelectArea={setActiveArea}
-        activeProfileName={profile?.fullName || 'Ashmit Bagga'}
-        isCapturing={syncState === 'capturing'}
+        activeProfileName={profile?.fullName || detection?.fullName || 'Candidate Profile'}
+        isCapturing={status === 'analyzing'}
       />
 
       {/* Main Viewport */}
       <div className="trace-main-viewport">
-        {/* Desktop Top Action Header */}
+        {/* Desktop Top Action Bar with Real-Time State Machine */}
         <TopBar
           currentArea={activeArea}
-          isCapturing={syncState === 'capturing'}
-          onCaptureClick={handleTriggerCapture}
+          status={status}
+          synthesisStatus={synthesisStatus}
+          onReanalyze={reanalyze}
+          onResynthesize={() => resynthesize(true)}
+          postsCount={profile?.posts?.length}
         />
 
         {/* Centered Desktop Content Container */}
         <main className="trace-desktop-container">
-          {/* Multi-Page / Partial Capture Notification Banner */}
-          {showCaptureBanner && (
+          {/* Automatic Profile Grounding Status Banner */}
+          {showStatusBanner && profile && (
             <CaptureBanner
-              message={bannerMessage}
-              subMessage="Open LinkedIn Activity → Posts to index chronological timeline anchors."
-              onDismiss={() => setShowCaptureBanner(false)}
+              status={status}
+              evidenceCount={profile.metadata?.totalEvidenceCount || evidenceItems.length}
+              onDismiss={() => setShowStatusBanner(false)}
             />
           )}
 
@@ -268,12 +342,7 @@ export const App: React.FC = () => {
                     profile={profile}
                     inResearch={isInResearch}
                     onToggleResearch={handleToggleResearch}
-                    artifactCounts={{
-                      internships: profile.experiences.length,
-                      projects: 4,
-                      hackathons: 3,
-                      opensource: 1,
-                    }}
+                    artifactCounts={artifactCounts}
                     observedEvidenceCount={observedEvidenceCount}
                     activeArtifactCategory={activeArtifactCategory}
                     onSelectArtifactCategory={handleSelectArtifactCategory}
@@ -284,12 +353,17 @@ export const App: React.FC = () => {
                     activeView={activeSubView}
                     onSelectView={setActiveSubView}
                     showArtifactsTab={activeSubView === 'artifacts'}
+                    activityCount={profile.posts?.length}
+                    sourcesCount={profile.externalSources?.length}
                   />
 
                   {/* Sub-View Projections */}
                   {activeSubView === 'timeline' && (
                     <TimelineView
                       events={timelineEvents}
+                      synthesis={synthesis}
+                      synthesisStatus={synthesisStatus}
+                      onResynthesize={() => resynthesize(true)}
                       onInspectEvidence={handleInspectEvidence}
                     />
                   )}
@@ -297,7 +371,7 @@ export const App: React.FC = () => {
                   {activeSubView === 'artifacts' && (
                     <ArtifactsBreakdownView
                       profile={profile}
-                      evidenceItems={Object.values(evidenceMap)}
+                      evidenceItems={evidenceItems}
                       initialCategory={activeArtifactCategory || 'internships'}
                       onInspectEvidence={handleInspectEvidence}
                     />
@@ -306,51 +380,78 @@ export const App: React.FC = () => {
                   {activeSubView === 'skills' && (
                     <SkillsView
                       skills={profile.skills}
-                      evidenceItems={Object.values(evidenceMap)}
+                      synthesis={synthesis}
+                      evidenceItems={evidenceItems}
                       onInspectEvidence={handleInspectEvidence}
                     />
                   )}
 
                   {activeSubView === 'preparation' && (
                     <PreparationView
+                      profile={profile}
+                      synthesis={synthesis}
+                      onInspectEvidence={handleInspectEvidence}
+                    />
+                  )}
+
+                  {activeSubView === 'activity' && (
+                    <ActivityView
+                      profile={profile}
+                      onInspectEvidence={handleInspectEvidence}
+                    />
+                  )}
+
+                  {activeSubView === 'sources' && (
+                    <ExternalSourcesView
+                      profile={profile}
                       onInspectEvidence={handleInspectEvidence}
                     />
                   )}
 
                   {activeSubView === 'summary' && (
                     <SummaryView
+                      profile={profile}
+                      synthesis={synthesis}
+                      evidenceItems={evidenceItems}
                       onInspectEvidence={handleInspectEvidence}
                     />
                   )}
                 </>
               ) : (
                 <EmptyState
-                  onTriggerCapture={handleTriggerCapture}
-                  onLoadSample={() => setProfile(SAMPLE_PROFILE)}
-                  isCapturing={syncState === 'capturing'}
+                  onLoadSample={loadSampleProfile}
+                  status={status}
                 />
               )}
             </>
           )}
 
+
           {/* Area 2: RESEARCH (Multiple Saved Profiles in Comparison Layout) */}
           {activeArea === 'research' && (
             <ResearchView
               researchSets={researchSets}
+              activeSetId={activeResearchSetId}
+              onSelectSet={(id) => setActiveResearchSetId(id)}
+              onCreateSet={handleCreateResearchSet}
+              onRenameSet={handleRenameResearchSet}
+              onDeleteSet={handleDeleteResearchSet}
               currentProfile={profile}
-              onSelectProfile={() => {
-                setActiveArea('profile');
-                setActiveSubView('timeline');
-              }}
+              onAddCurrentProfileToSet={(setId) => handleAddProfileToSet(setId)}
+              onRemoveProfileFromSet={(setId, profileId) => handleRemoveProfileFromSet(setId, profileId)}
+              onSelectProfile={handleSelectProfileFromResearch}
+              onInspectEvidence={handleInspectEvidence}
+              layoutMode={isCompact ? 'compact' : 'expanded'}
+              onLoadSampleCohort={handleLoadSampleCohort}
             />
           )}
 
           {/* Area 3: MY PATH (Personal Trajectory vs Target Benchmark Cohorts) */}
           {activeArea === 'mypath' && (
             <MyPathView
-              comparison={myPathComparison}
-              userProfile={profile}
               researchSets={researchSets}
+              onInspectEvidence={handleInspectEvidence}
+              layoutMode={isCompact ? 'compact' : 'expanded'}
             />
           )}
         </main>
@@ -363,6 +464,14 @@ export const App: React.FC = () => {
         targetPersonName={profile?.fullName || 'Candidate Profile'}
       />
     </div>
+  );
+};
+
+export const App: React.FC = () => {
+  return (
+    <LayoutProvider>
+      <AppInner />
+    </LayoutProvider>
   );
 };
 

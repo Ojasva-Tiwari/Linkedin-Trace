@@ -1,53 +1,81 @@
 /**
- * TRACE Content Script (Placeholder Skeleton)
- *
- * Principles:
- * 1. Passive listener: Does NOT execute background scraping or continuous DOM observation.
- * 2. User-triggered execution: Activates only when explicit 'CAPTURE_PAGE' message arrives.
- * 3. Parser abstraction: Detailed DOM parsing algorithms will be implemented in subsequent phases.
+ * TRACE Content Script
+ * 
+ * Automatically responds to profile detection and visible DOM extraction requests.
+ * Complies strictly with epistemic ground rules:
+ * - Reads only visible, rendered session content.
+ * - Does not perform aggressive background crawling.
+ * - Attaches DOM selectors and snippet anchors.
  */
 
-console.log('[TRACE Content Script] Injected on LinkedIn. Awaiting user-triggered capture command.');
+import { detectLinkedInProfile, extractLinkedInProfileFromDom } from '../extraction/linkedin-dom-extractor';
+
+console.log('[TRACE Content Script] Active on page:', window.location.href);
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message.action === 'CAPTURE_PAGE' || message.type === 'CAPTURE_CURRENT_PAGE') {
-    console.log('[TRACE Content Script] Explicit user capture triggered for URL:', window.location.href);
+  const action = message.action || message.type;
 
-    try {
-      // Gather top-level metadata
-      const metaTags: Record<string, string> = {};
-      document.querySelectorAll('meta').forEach((meta) => {
-        const name = meta.getAttribute('name') || meta.getAttribute('property');
-        const content = meta.getAttribute('content');
-        if (name && content) {
-          metaTags[name] = content;
-        }
-      });
-
-      // Basic sanitized text extraction placeholder (detailed parser to follow in next phase)
-      const mainContent = document.querySelector('main') || document.body;
-      const sanitizedText = (mainContent?.innerText || '').slice(0, 15000);
-
-      const capturePackage = {
-        url: window.location.href,
-        pageTitle: document.title,
-        capturedAt: new Date().toISOString(),
-        sanitizedDomText: sanitizedText,
-        metaTags,
-      };
-
-      sendResponse({
-        success: true,
-        data: capturePackage,
-      });
-    } catch (error) {
-      console.error('[TRACE Content Script] Error during page capture:', error);
-      sendResponse({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown capture error',
-      });
+  switch (action) {
+    case 'DETECT_PROFILE':
+    case 'DETECT_LINKEDIN_PROFILE': {
+      try {
+        const detection = detectLinkedInProfile();
+        sendResponse({ success: true, data: detection });
+      } catch (err) {
+        sendResponse({
+          success: false,
+          error: err instanceof Error ? err.message : 'Detection error',
+        });
+      }
+      return true;
     }
-  }
 
-  return true;
+    case 'EXTRACT_PROFILE':
+    case 'EXTRACT_LINKEDIN_PROFILE': {
+      try {
+        const rawProfile = extractLinkedInProfileFromDom();
+        if (!rawProfile) {
+          sendResponse({
+            success: false,
+            error: 'Current page is not a valid or rendered LinkedIn profile.',
+          });
+          return true;
+        }
+
+        sendResponse({
+          success: true,
+          data: rawProfile,
+        });
+      } catch (err) {
+        console.error('[TRACE Content Script] Extraction error:', err);
+        sendResponse({
+          success: false,
+          error: err instanceof Error ? err.message : 'Extraction failed',
+        });
+      }
+      return true;
+    }
+
+    case 'CAPTURE_PAGE':
+    case 'CAPTURE_CURRENT_PAGE': {
+      // Legacy fallback
+      try {
+        const rawProfile = extractLinkedInProfileFromDom();
+        sendResponse({
+          success: true,
+          data: rawProfile,
+        });
+      } catch (err) {
+        sendResponse({
+          success: false,
+          error: err instanceof Error ? err.message : 'Capture failed',
+        });
+      }
+      return true;
+    }
+
+    default:
+      return false;
+  }
 });
+

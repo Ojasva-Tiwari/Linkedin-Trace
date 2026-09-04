@@ -43,13 +43,7 @@ export const MetricBreakdownBar: React.FC<MetricBreakdownBarProps> = ({
       }}
     >
       {/* 4 Large Desktop Metric Cards */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(4, 1fr)',
-          gap: '8px',
-        }}
-      >
+      <div className="trace-metrics-grid">
         {categories.map((cat) => {
           const isSelected = activeCategory === cat.id;
           return (
@@ -119,18 +113,7 @@ export const MetricBreakdownBar: React.FC<MetricBreakdownBarProps> = ({
       </div>
 
       {/* Evidence Grounding Footer (NO fake verification percentages) */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '8px 4px 2px 4px',
-          color: 'var(--text-secondary)',
-          fontSize: 11,
-          borderTop: '1px solid var(--border-subtle)',
-          marginTop: 10,
-        }}
-      >
+      <div className="trace-metric-footer">
         <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
           <InfoIcon size={13} className="text-secondary" />
           <span>Click any metric block to inspect decomposed source records</span>

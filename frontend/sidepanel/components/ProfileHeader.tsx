@@ -40,16 +40,12 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         padding: '20px 24px',
       }}
     >
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'minmax(340px, 1fr) minmax(440px, 1.3fr)',
-          gap: '28px',
-          alignItems: 'center',
-        }}
-      >
+      <div className="trace-profile-header-wide">
         {/* Left: Candidate Identity & Core Metadata */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
+        <div
+          className="trace-profile-identity-col"
+          style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}
+        >
           {/* Avatar */}
           <div style={{ position: 'relative', flexShrink: 0 }}>
             <div
@@ -107,18 +103,33 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                 }}
                 title="Active Profile Synthesized"
               />
-              <span
-                className="font-label-sm"
-                style={{
-                  color: 'var(--text-secondary)',
-                  backgroundColor: 'var(--bg-subtle)',
-                  padding: '2px 8px',
-                  borderRadius: 'var(--radius-sm)',
-                  border: '1px solid var(--border-subtle)',
-                }}
-              >
-                Batch of '26
-              </span>
+              {primaryEducation?.dateRange?.rawString ? (
+                <span
+                  className="font-label-sm"
+                  style={{
+                    color: 'var(--text-secondary)',
+                    backgroundColor: 'var(--bg-subtle)',
+                    padding: '2px 8px',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--border-subtle)',
+                  }}
+                >
+                  {primaryEducation.dateRange.rawString}
+                </span>
+              ) : profile.location ? (
+                <span
+                  className="font-label-sm"
+                  style={{
+                    color: 'var(--text-secondary)',
+                    backgroundColor: 'var(--bg-subtle)',
+                    padding: '2px 8px',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--border-subtle)',
+                  }}
+                >
+                  {profile.location}
+                </span>
+              ) : null}
             </div>
 
             <p
@@ -190,7 +201,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                 }}
               >
                 {inResearch && <CheckIcon size={13} />}
-                <span>{inResearch ? 'In Research Cohort' : 'Save to Research'}</span>
+                <span>{inResearch ? 'In Research Cohort' : 'Add to Research'}</span>
               </button>
             </div>
           </div>

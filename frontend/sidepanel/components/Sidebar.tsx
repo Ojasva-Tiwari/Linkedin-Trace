@@ -10,7 +10,7 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({
   currentArea,
   onSelectArea,
-  activeProfileName = 'Ashmit Bagga',
+  activeProfileName = 'Candidate Profile',
   isCapturing = false,
 }) => {
   const navItems = [
@@ -69,7 +69,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Primary Navigation */}
-      <div style={{ padding: '16px 12px', flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <nav aria-label="Workspaces" style={{ padding: '16px 12px', flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
         <div
           className="font-label-sm"
           style={{
@@ -87,6 +87,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           return (
             <button
               key={item.id}
+              data-area-id={item.id}
               onClick={() => onSelectArea(item.id)}
               style={{
                 display: 'flex',
@@ -176,7 +177,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <SettingsIcon size={18} />
           <span className="trace-sidebar-label">Settings & Storage</span>
         </button>
-      </div>
+      </nav>
 
       {/* Footer Profile Glancer & Local DB Status */}
       <div style={{ padding: '16px', borderTop: '1px solid var(--border-subtle)', backgroundColor: 'var(--bg-canvas)' }}>
